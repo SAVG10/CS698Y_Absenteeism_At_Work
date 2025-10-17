@@ -1,5 +1,5 @@
 {% extends "tracker/_base.html" %}
-
+{% load duration_filters %}
 {% block content %}
     <h1>Dashboard</h1>
 
@@ -21,7 +21,7 @@
                         <tr>
                             <td>{{ absence.employee.full_name }}</td>
                             <td>{{ absence.reason.description }}</td>
-                            <td>{{ absence.predicted_hours|floatformat:1 }}</td>
+                            <td>{{ absence.predicted_hours|hours_to_duration }}</td>
                             <td>{{ absence.date_logged }}</td>
                         </tr>
                         {% empty %}
@@ -53,7 +53,7 @@
                 data: {
                     labels: chartLabels,
                     datasets: [{
-                        label: 'Total Absences',
+                        label: 'Total hours of absence',
                         data: chartData,
                         // You can add more background colors
                         backgroundColor: [

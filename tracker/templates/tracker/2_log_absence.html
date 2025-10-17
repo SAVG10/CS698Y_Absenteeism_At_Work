@@ -1,15 +1,16 @@
 {% extends "tracker/_base.html" %}
-
+{% load duration_filters %}
 {% block content %}
     <h1>Log a New Employee Absence</h1>
-
     {% if prediction_result %}
         <div class="alert-success">
             <strong>Prediction Complete:</strong> {{ prediction_result.name }} is predicted to be absent for 
-            <strong>{{ prediction_result.hours }} hours</strong>. This has been logged.
+            <strong>{{ prediction_result.hours|hours_to_duration }}</strong>. This has been logged.
+        </div>
+    {% elif prediction_result_zero %}
+        <div class="alert-info"> <strong>Prediction: 0h 0m.</strong> The absence for {{ prediction_result_zero.name }} was not logged.
         </div>
     {% endif %}
-
     {% if error %}
         <div class="alert-error">
             <strong>Error:</strong> {{ error }}

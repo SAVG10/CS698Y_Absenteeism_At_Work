@@ -1,5 +1,5 @@
 {% extends "tracker/_base.html" %}
-
+{% load duration_filters %}
 {% block content %}
     <h1>Expected Monthly Compensation</h1>
     <p>This report forecasts employee compensation for the current month. It assumes a standard 160-hour work month and subtracts any predicted absence hours logged this month.</p>
@@ -18,7 +18,7 @@
                 {% for item in salary_data %}
                 <tr>
                     <td>{{ item.name }}</td>
-                    <td>{{ item.total_absent_hours }}</td>
+                    <td>{{ item.total_absent_hours|hours_to_duration }}</td>
                     <td>{{ item.expected_work_hours }}</td>
                     <td><b>${{ item.expected_compensation }}</b></td>
                 </tr>

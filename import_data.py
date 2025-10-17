@@ -3,6 +3,7 @@
 import os
 import django
 import pandas as pd
+import sys # Import sys to exit the script on error
 
 # 1. SETUP: LOAD DJANGO ENVIRONMENT
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'absenteeism_project.settings')
@@ -12,20 +13,26 @@ django.setup()
 from tracker.models import AbsenceReason, Employee
 
 # 3. DEFINE YOUR DATA AND MAPPINGS
-# --- IMPORTANT: ADJUST THIS ---
 try:
-    DATASET_PATH = '~/Absenteeism_at_work.csv' # Point this to your file
+    # --- IMPORTANT: Make sure this path is correct ---
+    DATASET_PATH = '~/Absenteeism_at_work.csv' 
     df = pd.read_csv(DATASET_PATH, sep=';')
-    print(f"Successfully loaded DataFrame from {DATASET_PATH}")
+    print(f"--- Successfully loaded DataFrame from {DATASET_PATH} ---")
+
+    # --- NEW DEBUG STEP 1: Print all columns from your CSV ---
+    print("\n--- DataFrame Columns (from your CSV file) ---")
+    print(df.columns.to_list())
+    print("-------------------------------------------------\n")
+
 except FileNotFoundError:
     print(f"ERROR: Dataset file not found at {DATASET_PATH}")
     print("Please update the DATASET_PATH variable in this script.")
-    exit()
+    sys.exit()
 except Exception as e:
     print(f"Error loading DataFrame: {e}")
-    exit()
+    sys.exit()
 
-# Map of all reasons (This is correct)
+# Map of all reasons (This should be correct)
 REASON_MAP = {
     0: 'No Reason Given', 1: 'Certain infectious and parasitic diseases',
     2: 'Neoplasms', 3: 'Diseases of the blood',
@@ -43,8 +50,9 @@ REASON_MAP = {
     28: 'Dental consultation',
 }
 
-# --- THIS IS THE MAIN CHANGE ---
-# The map now *only* includes static employee features.
+# --- POTENTIAL ERROR LOCATION ---
+# Compare the printout above with these keys. They must match perfectly.
+# I am keeping the trailing space on 'Work load...' as it's the most common version.
 COLUMN_MAP = {
     'ID': 'employee_id',
     'Age': 'age',
@@ -53,14 +61,34 @@ COLUMN_MAP = {
     'Transportation expense': 'transportation_expense',
     'Distance from Residence to Work': 'distance_from_residence_to_work',
     'Service time': 'service_time',
-    'Work load Average/day ': 'work_load_average_day', # Note the trailing space
+    'Work load Average/day ': 'work_load_average_day', # <-- Check this key carefully!
     'Hit target': 'hit_target',
 }
+
+# --- NEW DEBUG STEP 2: Validate column map against the CSV ---
+csv_columns = df.columns.to_list()
+map_keys = list(COLUMN_MAP.keys())
+
+missing_keys = [key for key in map_keys if key not in csv_columns]
+
+if missing_keys:
+    print(f"--- ERROR: SCRIPT STOPPED ---")
+    print("Your CSV is missing columns that `COLUMN_MAP` needs.")
+    print("Missing column(s):")
+    for key in missing_keys:
+        print(f"  - '{key}'")
+    
+    print("\nACTION: Look at the 'DataFrame Columns' printout above.")
+    print("Then, edit the `COLUMN_MAP` dictionary in this script to match your CSV.")
+    sys.exit() # Stop the script
+else:
+    print("--- Column map validated. All keys found in CSV. ---")
+
 
 # 4. DEFINE THE IMPORT FUNCTION
 def populate_database():
     
-    print("--- Starting Data Import ---")
+    print("\n--- Starting Data Import ---")
 
     # --- Step A: Populate AbsenceReason Table ---
     print("Populating AbsenceReason table...")
@@ -84,20 +112,16 @@ def populate_database():
 
     for index, row in df_unique_employees.iterrows():
         try:
-            # Prepare a dictionary of data for the Employee model
             employee_data = {}
             for df_col, model_field in COLUMN_MAP.items():
-                # All columns in the new map are direct copies
                 employee_data[model_field] = row[df_col]
 
-            # Add the placeholder fields
             employee_data['full_name'] = f"Employee {row['ID']}"
-            employee_data['hourly_rate'] = 40  # Default value
+            employee_data['hourly_rate'] = 30.00 
 
-            # Use update_or_create to add new employees or update existing ones
             employee, created = Employee.objects.update_or_create(
-                employee_id=row['ID'],  # Key
-                defaults=employee_data     # Data to update/create
+                employee_id=row['ID'],  
+                defaults=employee_data     
             )
 
             if created:
@@ -106,6 +130,7 @@ def populate_database():
                 employees_updated_count += 1
 
         except Exception as e:
+            # This will catch any other unexpected errors
             print(f"  ERROR: Failed to import Employee {row['ID']}. Error: {e}")
 
     print("\n--- Import Complete ---")
