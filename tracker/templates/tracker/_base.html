@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absenteeism Tracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f8f9fa;
+        }
+        .nav-menu {
+            width: 240px;
+            height: 100vh;
+            background: #343a40;
+            color: white;
+            padding-top: 20px;
+            position: fixed;
+        }
+        .nav-menu h3 {
+            padding: 0 20px;
+            font-size: 1.2rem;
+        }
+        .nav-menu ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .nav-menu a {
+            display: block;
+            padding: 12px 20px;
+            text-decoration: none;
+            color: #adb5bd;
+            font-weight: 500;
+        }
+        .nav-menu a:hover {
+            background: #495057;
+            color: white;
+        }
+        .nav-menu a.active {
+            background: #007bff;
+            color: white;
+        }
+        .content {
+            margin-left: 240px;
+            flex-grow: 1;
+            padding: 30px;
+            max-width: 1000px;
+        }
+        .content h1 {
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f3f5;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 8px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn:hover { background-color: #0056b3; }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+        .alert-success {
+            padding: 15px;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .alert-error {
+            padding: 15px;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="nav-menu">
+        <h3>Absenteeism AI</h3>
+        <ul>
+            <li><a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+            <li><a href="{% url 'log_absence' %}" class="{% if page == 'log_absence' %}active{% endif %}">Log New Absence</a></li>
+            <li><a href="{% url 'salaries' %}" class="{% if page == 'salaries' %}active{% endif %}">Salaries</a></li>
+            <li><a href="{% url 'about_model' %}" class="{% if page == 'about' %}active{% endif %}">About the Model</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        {% block content %}
+        {% endblock %}
+    </main>
+</body>
+</html>

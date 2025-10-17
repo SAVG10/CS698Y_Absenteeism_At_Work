@@ -1,0 +1,47 @@
+{% extends "tracker/_base.html" %}
+
+{% block content %}
+    <h1>Log a New Employee Absence</h1>
+
+    {% if prediction_result %}
+        <div class="alert-success">
+            <strong>Prediction Complete:</strong> {{ prediction_result.name }} is predicted to be absent for 
+            <strong>{{ prediction_result.hours }} hours</strong>. This has been logged.
+        </div>
+    {% endif %}
+
+    {% if error %}
+        <div class="alert-error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="employee_id">Employee</label>
+                <select name="employee_id" id="employee_id" required>
+                    <option value="">--- Select Employee ---</option>
+                    {% for emp in employees %}
+                        <option value="{{ emp.employee_id }}">{{ emp.full_name }} (ID: {{ emp.employee_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="reason_code">Reason for Absence</label>
+                <select name="reason_code" id="reason_code" required>
+                    <option value="">--- Select Reason ---</option>
+                    {% for reason in reasons %}
+                        <option value="{{ reason.reason_code }}">{{ reason.description }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <p><strong>Note:</strong> Other features (Age, BMI, Service Time, etc.) will be automatically pulled from the employee's database record. The current month and day will be used.</p>
+
+            <button type="submit" class="btn">Predict & Log Absence</button>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "tracker/_base.html" %}
+
+{% block content %}
+    <h1>Dashboard</h1>
+
+    <div style="display: flex; gap: 30px;">
+        <div style="flex: 3;">
+            <h3>Currently Absent Employees</h3>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Reason</th>
+                            <th>Predicted Hours</th>
+                            <th>Date Logged</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for absence in current_absences %}
+                        <tr>
+                            <td>{{ absence.employee.full_name }}</td>
+                            <td>{{ absence.reason.description }}</td>
+                            <td>{{ absence.predicted_hours|floatformat:1 }}</td>
+                            <td>{{ absence.date_logged }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center;">No employees are currently absent.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div style="flex: 2;">
+            <h3>Absence Reasons (All Time)</h3>
+            <div class="card">
+                <canvas id="reasonPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const ctx = document.getElementById('reasonPieChart').getContext('2d');
+            const chartLabels = JSON.parse('{{ chart_labels|safe }}');
+            const chartData = JSON.parse('{{ chart_data|safe }}');
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Total Absences',
+                        data: chartData,
+                        // You can add more background colors
+                        backgroundColor: [
+                            '#007bff', '#dc3545', '#ffc107', '#28a745', '#6f42c1', '#fd7e14',
+                            '#20c997', '#6610f2', '#17a2b8', '#e83e8c'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "tracker/_base.html" %}
+
+{% block content %}
+    <h1>About the Fairness-Aware Model</h1>
+    [cite_start]<p>This report details the process of building the predictive model for employee absenteeism while considering and mitigating issues of fairness and bias. [cite: 7]</p>
+
+    <div class="card">
+        <h3>Model Overview</h3>
+        <p>
+            [cite_start]The underlying model is an <strong>XGBoost</strong> model developed using the "Absenteeism at work" dataset. [cite: 8]
+            [cite_start]While predictive accuracy is a key goal, ensuring that a model does not disproportionately harm or favor certain demographic groups is critical for ethical deployment. [cite: 19]
+        </p>
+
+        <h3>Bias Evaluation</h3>
+        <p>An initial bias evaluation identified several potential sources of unfairness:</p>
+        <ul>
+            <li><strong>Historical Bias:</strong> The dataset may perpetuate existing biases. [cite_start]For instance, employees with caregiving responsibilities (proxied by 'Son' or 'Pet') or specific health conditions (proxied by 'Body mass index') might have historically higher absenteeism, which a model could unfairly penalize. [cite: 29]</li>
+            [cite_start]<li><strong>Representation Bias:</strong> The training data showed an imbalance in the 'Education' feature, with high school education (level 1) being significantly over-represented. [cite: 30, 31]</li>
+            [cite_start]<li><strong>Proxy Bias:</strong> Features like 'Smoker', 'Son', 'Pet', and 'Education' could act as proxies for sensitive attributes like family status or health, leading to discriminatory predictions. [cite: 33, 34]</li>
+        </ul>
+
+        <h3>Our Fairness Interventions</h3>
+        [cite_start]<p>To mitigate the identified biases, this "fair" model was constructed using a multi-stage strategy: [cite: 51]</p>
+        <ol>
+            <li>
+                [cite_start]<strong>Pre-processing (Feature Elimination):</strong> To build a fairer model, we removed features that could introduce bias based on family or lifestyle factors. [cite: 52] [cite_start]Specifically, <strong>'Son' (number of children), 'Pet', and 'Social smoker' were dropped</strong>. [cite: 53]
+            </li>
+            <li>
+                [cite_start]<strong>In-processing (Resampling):</strong> To address the under-representation of certain education levels, we applied <strong>random oversampling</strong> to the minority classes (levels 2, 3, and 4) to balance their distribution. [cite: 54]
+            </li>
+            <li>
+                [cite_start]<strong>Post-processing (Calibration for BMI):</strong> While BMI is a relevant health indicator, it's also sensitive. [cite: 56] [cite_start]Instead of removing it, we mitigated its potential for bias using the <strong>'ThresholdOptimizer' from 'fairlearn'</strong>. [cite: 57, 58] [cite_start]This adjusts prediction thresholds to ensure equitable performance (Equalized Odds) across different BMI categories. [cite: 58, 59]
+            </li>
+        </ol>
+
+        <h3>Conclusion</h3>
+        <p>
+            [cite_start]This model was built to distribute predictive accuracy more evenly across different subgroups. [cite: 106]
+            [cite_start]This approach ensures that the predictive model better reflects fairness and inclusivity, offering outcomes that are more just and reliable for a diverse population. [cite: 108]
+        </p>
+    </div>
+{% endblock %}

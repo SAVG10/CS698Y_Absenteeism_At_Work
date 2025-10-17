@@ -1,0 +1,29 @@
+{% extends "tracker/_base.html" %}
+
+{% block content %}
+    <h1>Expected Monthly Compensation</h1>
+    <p>This report forecasts employee compensation for the current month. It assumes a standard 160-hour work month and subtracts any predicted absence hours logged this month.</p>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Total Absent Hours (This Month)</th>
+                    <th>Expected Work Hours</th>
+                    <th>Expected Compensation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in salary_data %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.total_absent_hours }}</td>
+                    <td>{{ item.expected_work_hours }}</td>
+                    <td><b>${{ item.expected_compensation }}</b></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
