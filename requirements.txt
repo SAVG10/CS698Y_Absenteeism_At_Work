@@ -4,13 +4,11 @@ gpytorch==1.11
 gunicorn==23.0.0
 joblib==1.2.0
 matplotlib==3.6.3
-matplotlib-inline @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_9ddl71oqte/croots/recipe/matplotlib-inline_1662014471815/work
 pandas==2.3.3
 python-dateutil==2.9.0
-python-json-logger @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_49p5x2bjzn/croot/python-json-logger_1683823814668/work
-pytz @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_e0y2h1cdsw/croot/pytz_1695131602326/work
+pytz==2023.3
 scikit-learn==1.2.2
-scipy @ file:///private/var/folders/c_/qfmhj66j0tn016nkx_th4hxm0000gp/T/abs_7e16tat7za/croot/scipy_1701295051536/work/dist/scipy-1.11.4-cp310-cp310-macosx_10_9_x86_64.whl#sha256=a415a493bac505f411376572807c781484b5bf03a9fce161187ff325dc73f8ac
+scipy==1.11.4
 sqlparse==0.4.4
 threadpoolctl==3.1.0
 tzdata==2025.2
