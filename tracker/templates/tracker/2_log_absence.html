@@ -2,13 +2,14 @@
 {% load duration_filters %}
 {% block content %}
     <h1>Log a New Employee Absence</h1>
+
     {% if prediction_result %}
         <div class="alert-success">
-            <strong>Prediction Complete:</strong> {{ prediction_result.name }} is predicted to be absent for 
-            <strong>{{ prediction_result.hours|hours_to_duration }}</strong>. This has been logged.
+            <strong>Absence Logged!</strong> {{ prediction_result.name }} was logged for 
+            <strong>{{ prediction_result.hours|hours_to_duration }}</strong>.
         </div>
     {% elif prediction_result_zero %}
-        <div class="alert-info"> <strong>Prediction: 0h 0m.</strong> The absence for {{ prediction_result_zero.name }} was not logged.
+        <div class="alert-info"> <strong>Prediction: 0h 0m.</strong> The model suggests this absence is unlikely to exceed 1 hour. No absence was logged.
         </div>
     {% endif %}
     {% if error %}
@@ -17,32 +18,90 @@
         </div>
     {% endif %}
 
-    <div class="card">
-        <form method="POST">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="employee_id">Employee</label>
-                <select name="employee_id" id="employee_id" required>
-                    <option value="">--- Select Employee ---</option>
-                    {% for emp in employees %}
-                        <option value="{{ emp.employee_id }}">{{ emp.full_name }} (ID: {{ emp.employee_id }})</option>
-                    {% endfor %}
-                </select>
-            </div>
+    {% if not predicted_hours %}
+        <div class="card">
+            <form method="POST" action="{% url 'log_absence' %}" id="prediction-form">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="employee_id">Employee</label>
+                    <select name="employee_id" id="employee_id" required>
+                        <option value="">--- Select Employee ---</option>
+                        {% for emp in employees %}
+                            <option value="{{ emp.employee_id }}" {% if selected_employee_id == emp.employee_id|stringformat:"s" %}selected{% endif %}>
+                                {{ emp.full_name }} (ID: {{ emp.employee_id }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="reason_code">Reason for Absence</label>
-                <select name="reason_code" id="reason_code" required>
-                    <option value="">--- Select Reason ---</option>
-                    {% for reason in reasons %}
-                        <option value="{{ reason.reason_code }}">{{ reason.description }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="form-group">
+                    <label for="reason_code">Reason for Absence</label>
+                    <select name="reason_code" id="reason_code" required>
+                        <option value="">--- Select Reason ---</option>
+                        {% for reason in reasons %}
+                            <option value="{{ reason.reason_code }}" {% if selected_reason_code == reason.reason_code|stringformat:"s" %}selected{% endif %}>
+                                {{ reason.description }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <p style="font-size: 0.9rem;">
+                    <strong>Note:</strong> The prediction uses features pulled automatically from the employee's record, including **Age, BMI, Service Time, Social Smoker Status, and number of children**. The current month and day will be used.
+                </p>
+
+                <button type="submit" name="action" value="predict" class="btn">Predict Absence Hours</button>
+            </form>
+        </div>
+
+    {% elif predicted_hours %}
+        <div class="card" style="margin-top: 20px; border-left: 5px solid #007bff;">
+            <h2 style="border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">Prediction Output (Review & Log)</h2>
             
-            <p><strong>Note:</strong> Other features (Age, BMI, Service Time, etc.) will be automatically pulled from the employee's database record. The current month and day will be used.</p>
+            <form method="POST" action="{% url 'log_absence' %}" id="logging-form">
+                {% csrf_token %}
+                
+                <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+                <input type="hidden" name="reason_code" value="{{ selected_reason_code }}">
+                <input type="hidden" name="action" value="log">
 
-            <button type="submit" class="btn">Predict & Log Absence</button>
-        </form>
-    </div>
+                <div style="margin-bottom: 20px;">
+                    <strong style="font-size: 1.2rem; color: #007bff;">Predicted Absence Time:</strong>
+                    <span style="font-size: 1.8rem; font-weight: bold;">{{ predicted_hours|hours_to_duration }}</span>
+                    
+                    <span style="display: inline-block; margin-left: 20px; color: #6c757d;">
+                        (Confidence: {{ model_confidence|default:"N/A" }}%)
+                    </span>
+                </div>
+                
+                <div class="alert-info">
+                    <p style="margin: 0;"><strong>Model Rationale (Top Features):</strong></p>
+                    <ul style="margin: 5px 0 0 15px; padding: 0;">
+                        {% for feature in top_features %}
+                            <li>{{ feature }}</li> 
+                        {% empty %}
+                            <li>Prediction was based on employee demographic data and the selected reason code.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="form-group" style="max-width: 300px;">
+                    <label for="actual_hours">Actual/Override Hours (in hours, e.g., 8.0)</label>
+                    <input type="number" step="0.5" name="actual_hours" id="actual_hours" 
+                           value="{{ predicted_hours|floatformat:1 }}" required class="form-control">
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="background-color: #28a745;">
+                        Confirm & Log Absence
+                    </button>
+                    <a href="{% url 'log_absence' %}" class="btn" style="background-color: #6c757d; color: white; text-decoration: none;">
+                        Cancel/Start Over
+                    </a>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+
 {% endblock %}

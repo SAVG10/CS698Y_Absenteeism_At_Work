@@ -2,28 +2,56 @@
 {% load duration_filters %}
 {% block content %}
     <h1>Expected Monthly Compensation</h1>
-    <p>This report forecasts employee compensation for the current month. It assumes a standard 160-hour work month and subtracts any predicted absence hours logged this month.</p>
+    <p>
+        This report forecasts employee compensation for the current month. It assumes a standard 160-hour work month and subtracts any 
+        <strong>predicted absence hours</strong> logged this month.
+    </p>
 
+    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+        <div class="card" style="flex: 1; text-align: center;">
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Predicted Hours Lost</p>
+            <h2 style="color: #dc3545; margin: 0;">{{ total_company_hours_lost|default:"0.0" }} Hours</h2>
+        </div>
+
+        <div class="card" style="flex: 1; text-align: center;">
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Estimated Absence Cost</p>
+            <h2 style="color: #ffc107; margin: 0;">${{ total_company_cost_impact|floatformat:2|default:"0.00" }}</h2>
+        </div>
+    </div>
     <div class="card">
         <table>
             <thead>
                 <tr>
                     <th>Employee</th>
-                    <th>Total Absent Hours (This Month)</th>
+                    <th>Predicted Hours Lost</th>
                     <th>Expected Work Hours</th>
+                    <th>Estimated Absence Cost</th> 
                     <th>Expected Compensation</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in salary_data %}
-                <tr>
+                <tr {% if item.total_absent_hours > 0 %}style="background-color: #fff3cd; border-left: 3px solid #ffc107;"{% endif %}>
                     <td>{{ item.name }}</td>
-                    <td>{{ item.total_absent_hours|hours_to_duration }}</td>
-                    <td>{{ item.expected_work_hours }}</td>
-                    <td><b>${{ item.expected_compensation }}</b></td>
+                    <td>{{ item.total_absent_hours|floatformat:1 }} hours</td> 
+                    <td>{{ item.expected_work_hours|floatformat:1 }}</td>
+                    <td style="font-weight: bold; color: #dc3545;">
+                        ${{ item.absence_cost|floatformat:2|default:"0.00" }}
+                    </td> 
+                    <td><b>${{ item.expected_compensation|floatformat:2 }}</b></td>
                 </tr>
                 {% endfor %}
             </tbody>
+            
+            <tfoot>
+                <tr style="background-color: #f1f3f5; font-weight: bold;">
+                    <td>TOTALS:</td>
+                    <td>{{ total_company_hours_lost|floatformat:1 }} hours</td>
+                    <td>-</td>
+                    <td>${{ total_company_cost_impact|floatformat:2|default:"0.00" }}</td>
+                    <td>-</td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 {% endblock %}
