@@ -17,9 +17,9 @@
         </div>
 
         <div class="card" style="flex: 1; text-align: center;">
-            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Model Prediction Accuracy</p>
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Model Prediction Accuracy<big>*</big></p>
             <h2 style="color: #007bff; margin: 0;">{{ model_accuracy|default:"92%" }}</h2>
-            <p style="font-size: 0.8rem; color: #6c757d;">(Within $\pm 1$ Hour) | **Fairness Risk: Low**</p>
+            <p style="font-size: 0.8rem; color: #6c757d;"> Fairness Risk: Low</p>
         </div>
     </div>
 
@@ -35,7 +35,7 @@
                             <th>Employee</th>
                             <th>Reason</th>
                             <th>Pred. Hours</th>
-                            <th>Confid.</th>
+                            <th>Confid.<big>*</big></th>
                             <th>Date Logged</th>
                             <th>Status</th>
                         </tr>
@@ -86,7 +86,10 @@
             
             <div class="alert-info" style="margin-top: 15px; font-size: 0.9rem;">
                 <p style="margin: 0; font-weight: bold;">Insight:</p>
-                <p style="margin: 5px 0 0 0;">'{{ top_reason_label|default:"Medical consultation" }}' is the leading cause of lost time. Consider reviewing health benefits or wellness programs.</p>
+                <p style="margin: 5px 0 0 0;">
+                    '{{ top_reason_label|default:"N/A" }}' is the leading cause of lost time.
+                    {{ top_reason_recommendation|default:"Review absence patterns and employee support policies." }}
+                </p>
             </div>
         </div>
     </div>

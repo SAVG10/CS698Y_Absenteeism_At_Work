@@ -8,6 +8,40 @@ import joblib
 import pandas as pd
 import json
 
+# Recommendations aligned to REASON_MAP codes (import_data.py)
+REASON_RECOMMENDATIONS = {
+    0: "Investigate unreported absences and reinforce timely reporting with manager follow-ups.",
+    1: "Promote hygiene, sick-leave usage, and vaccination to reduce infectious spread.",
+    2: "Support flexible schedules for treatment and reinforce medical leave accommodations.",
+    3: "Coordinate with healthcare needs and provide schedule flexibility for treatments.",
+    4: "Offer wellness coaching for diabetes/thyroid management and allow flexible breaks.",
+    5: "Strengthen EAP access, mental-health days, and workload balance to reduce burnout.",
+    6: "Provide quiet spaces and flexible hours for migraines/neurological conditions.",
+    7: "Improve screen ergonomics, enforce screen-breaks, and expand vision benefits.",
+    8: "Ensure timely ENT access and improve noise control/PPE where relevant.",
+    9: "Offer heart-health screenings and encourage activity through wellness programs.",
+    10: "Plan for flu/COVID seasons—improve air quality, vaccination, and remote options.",
+    11: "Allow flexible scheduling and promote nutrition/wellness resources.",
+    12: "Reduce irritant exposure and ensure PPE/dermatology coverage where needed.",
+    13: "Invest in ergonomics, lifting training, and access to physiotherapy.",
+    14: "Provide flexible scheduling and ensure access to urology/gynecology care.",
+    15: "Strengthen parental leave, prenatal accommodations, and flexible schedules.",
+    16: "Offer caregiver leave/flex time where perinatal-related care is needed.",
+    17: "Provide consistent medical accommodations and appointment flexibility.",
+    18: "Encourage early care via telemedicine and easy appointment access.",
+    19: "Tighten safety training, PPE usage, and incident root-cause reviews.",
+    20: "Increase safety awareness for travel/out-of-work risks and provide guidance.",
+    21: "Promote preventive care and wellness incentives to reduce avoidable absences.",
+    22: "Facilitate time-off for follow-ups and streamline scheduling around shifts.",
+    23: "Encourage preventive visits off-peak or offer on-site/near-site clinics.",
+    24: "Schedule on-site blood drives in low-demand windows and offer paid time.",
+    25: "Provide flexible time for lab work and coordinate early/late appointments.",
+    26: "Reinforce attendance policy with coaching and early-warning interventions.",
+    27: "Support therapy attendance with flex time and ergonomic adjustments.",
+    28: "Offer dental coverage, on-site events, and scheduling flexibility.",
+}
+DEFAULT_RECOMMENDATION = "Review absence patterns and employee support policies."
+
 # --- 1. MODEL LOADING ---
 # Load the ThresholdOptimizer you exported from Colab
 try:
@@ -23,28 +57,71 @@ except Exception as e:
 
 # --- Tab 1: Dashboard View (No Change) ---
 def dashboard_view(request):
-    # This part is the same
     current_absences = AbsenceLog.objects.filter(status='ABSENT').order_by('-date_logged')
-    
-    # --- THIS IS THE CHANGE ---
-    # We now Sum 'predicted_hours' and rename the annotated field to 'total_hours'
-    reason_data = AbsenceLog.objects.values('reason__description') \
-                                      .annotate(total_hours=Sum('predicted_hours')) \
-                                      .order_by('-total_hours')
-    
-    # Filter out reasons with 0 or negative hours, as they shouldn't be on the chart
-    reason_data = reason_data.filter(total_hours__gt=0)
-    
-    # Update variable names to be clearer
-    chart_labels = [item['reason__description'] for item in reason_data]
-    chart_values = [item['total_hours'] for item in reason_data]
-    # --- END OF CHANGE ---
+
+    # Aggregate total hours by reason (all time) with reason code + description
+    reason_query = (
+        AbsenceLog.objects
+        .values('reason__reason_code', 'reason__description')
+        .annotate(total_hours=Sum('predicted_hours'))
+        .filter(total_hours__gt=0)
+        .order_by('-total_hours')
+    )
+
+    chart_labels = [item['reason__description'] for item in reason_query]
+    chart_values = [item['total_hours'] for item in reason_query]
+
+    # Determine the top reason and map to recommendation
+    if reason_query:
+        top = reason_query[0]
+        top_reason_code = top['reason__reason_code']
+        top_reason_label = top['reason__description']
+        top_reason_recommendation = REASON_RECOMMENDATIONS.get(top_reason_code, DEFAULT_RECOMMENDATION)
+    else:
+        top_reason_label = None
+        top_reason_recommendation = DEFAULT_RECOMMENDATION
+
+    # --- KPI CARDS (Current Month) ---
+    current_month = timezone.now().month
+    current_year = timezone.now().year
+
+    month_logs = (
+        AbsenceLog.objects
+        .filter(date_logged__month=current_month, date_logged__year=current_year)
+        .select_related('employee')
+    )
+
+    total_predicted_hours = month_logs.aggregate(total=Sum('predicted_hours'))['total'] or 0.0
+
+    # Absenteeism rate = total predicted hours / (employees * 160) * 100
+    STANDARD_WORK_HOURS = 160.0
+    employee_count = Employee.objects.count()
+    total_standard_hours = employee_count * STANDARD_WORK_HOURS
+    if total_standard_hours > 0:
+        absenteeism_rate = (float(total_predicted_hours) / float(total_standard_hours)) * 100.0
+    else:
+        absenteeism_rate = 0.0
+
+    # Estimated compensation reduction = sum(predicted_hours * hourly_rate) across month logs
+    estimated_compensation_impact = 0.0
+    for log in month_logs:
+        try:
+            estimated_compensation_impact += float(log.predicted_hours) * float(log.employee.hourly_rate)
+        except Exception:
+            # In case of missing employee/hourly_rate, skip that log
+            continue
 
     context = {
         'current_absences': current_absences,
         'chart_labels': json.dumps(chart_labels),
-        'chart_data': json.dumps(chart_values), # Pass the new chart_values
-        'page': 'dashboard' 
+        'chart_data': json.dumps(chart_values),
+        'top_reason_label': top_reason_label,
+        'top_reason_recommendation': top_reason_recommendation,
+        # KPI cards
+        'overall_absenteeism_rate': f"{absenteeism_rate:.2f}%",
+        'estimated_compensation_impact': round(estimated_compensation_impact, 2),
+        'total_predicted_hours': round(float(total_predicted_hours), 1),
+        'page': 'dashboard'
     }
     return render(request, 'tracker/1_dashboard.html', context)
 
@@ -106,11 +183,10 @@ def log_absence_view(request):
 
             # 6. Make prediction
             predicted_hours = TO_BMI_MODEL.predict(
-                X_pred, 
-                sensitive_features=sensitive_features_series
+                X_pred
             )[0]
-            
-            predicted_hours = max(0, float(predicted_hours)) # Keep full precision
+
+            predicted_hours =  round(float(predicted_hours), 2) # Round to 2 decimal places
 
             if predicted_hours > 0:
                 # 7. Save to AbsenceLog (ONLY if > 0)
@@ -147,6 +223,10 @@ def salaries_view(request):
     current_month = timezone.now().month
     current_year = timezone.now().year
 
+    # Company-wide totals
+    total_company_hours_lost = 0.0
+    total_company_cost_impact = 0.0
+
     for emp in employees:
         absent_hours_agg = AbsenceLog.objects.filter(
             employee=emp,
@@ -155,18 +235,27 @@ def salaries_view(request):
         ).aggregate(total_hours=Sum('predicted_hours'))
         
         total_absent_hours = absent_hours_agg['total_hours'] or 0.0
+        # Individual calculations
         expected_work_hours = max(0, STANDARD_WORK_HOURS - float(total_absent_hours))
+        absence_cost = float(total_absent_hours) * float(emp.hourly_rate)
         expected_compensation = expected_work_hours * float(emp.hourly_rate)
+
+        # Update company-wide totals
+        total_company_hours_lost += float(total_absent_hours)
+        total_company_cost_impact += absence_cost
         
         salary_data.append({
             'name': emp.full_name,
             'total_absent_hours': total_absent_hours, # Pass the full float
             'expected_work_hours': round(expected_work_hours, 1),
+            'absence_cost': round(absence_cost, 2),
             'expected_compensation': round(expected_compensation, 2)
         })
 
     context = {
         'salary_data': salary_data,
+        'total_company_hours_lost': round(total_company_hours_lost, 1),
+        'total_company_cost_impact': round(total_company_cost_impact, 2),
         'page': 'salaries'
     }
     return render(request, 'tracker/3_salaries.html', context)
