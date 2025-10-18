@@ -8,3 +8,4 @@ scikit-learn==1.2.2
 scipy==1.11.4
 tzdata==2025.2
 xgboost==2.0.3
+dj-database-url==1.0.0
