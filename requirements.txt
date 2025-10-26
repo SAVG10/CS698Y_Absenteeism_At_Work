@@ -10,3 +10,4 @@ tzdata==2025.2
 xgboost==2.0.3
 dj-database-url==1.0.0
 psycopg[binary]
+fairlearn
