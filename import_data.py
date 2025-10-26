@@ -15,7 +15,7 @@ from tracker.models import AbsenceReason, Employee
 # 3. DEFINE YOUR DATA AND MAPPINGS
 try:
     # --- IMPORTANT: Make sure this path is correct ---
-    DATASET_PATH = '~/Absenteeism_at_work.csv' 
+    DATASET_PATH = 'Absenteeism_at_work.csv' 
     df = pd.read_csv(DATASET_PATH, sep=';')
     print(f"--- Successfully loaded DataFrame from {DATASET_PATH} ---")
 
