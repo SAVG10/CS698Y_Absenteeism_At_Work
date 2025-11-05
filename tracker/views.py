@@ -264,3 +264,28 @@ def salaries_view(request):
 def about_model_view(request):
     context = {'page': 'about'}
     return render(request, 'tracker/4_about.html', context)
+
+
+def model_explanations_view(request):
+    """Render a simple model explainability page.
+
+    This page provides a human-friendly explanation of the model, lists
+    top features, and reserves space for visual explainability artifacts
+    (SHAP, feature importances). Keep content lightweight to avoid
+    introducing heavy dependencies at render time.
+    """
+    # Small, safe defaults — replace or extend with live data if available
+    top_features = [
+        'Body mass index',
+        'Service time',
+        'Age',
+        'Reason for absence',
+        'Work load Average/day '
+    ]
+
+    context = {
+        'page': 'model_explanations',
+        'top_features': top_features,
+        'shap_available': False,  # flip to True and pass SHAP payload when available
+    }
+    return render(request, 'tracker/5_model_explanations.html', context)

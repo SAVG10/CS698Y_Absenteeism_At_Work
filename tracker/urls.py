@@ -15,4 +15,6 @@ urlpatterns = [
 
     # Tab 4: About the Model
     path('about/', views.about_model_view, name='about_model'),
+    # Model Explainations (new)
+    path('model_explanations/', views.model_explanations_view, name='model_explanations'),
 ]

@@ -1,0 +1,90 @@
+{% extends 'tracker/_base.html' %}
+{% load static %}
+{% block content %}
+    <h1>Model Explanations</h1>
+<p style="font-size: 1.05rem; color: #343a40; line-height: 1.6; margin-bottom: 25px;">
+    To ensure that our absenteeism prediction model remains <strong>transparent, interpretable, and trustworthy</strong> 
+    for real-world decision-making, we employed
+    <strong>model explainability techniques</strong>. 
+    These methods help users to understand not only what the model predicts, 
+    but also <em>why</em> it makes those predictions.
+</p>
+    <div class="card">
+        <h2>Local Explanations (LIME)</h2>
+        <p>
+            To understand why our model predicts a certain level of absenteeism for employees,
+            we use <strong>LIME (Local Interpretable Model-Agnostic Explanations)</strong>.  
+            LIME approximates the model locally around a specific prediction to identify which features 
+            (such as <em>transportation expense, reason of absence, or workload</em>) 
+            contributed most to that prediction.
+        </p>
+
+        <p>
+            To provide detailed insights, we selected one random employee from each <strong>BMI category</strong> 
+            (normal, overweight, and obese) and applied <strong>LIME</strong> around that employee
+            to visualize how different features influenced their individual absenteeism prediction. 
+            The graph below illustrates the relative contribution (positive or negative) of each feature 
+            for the chosen employee.
+        </p>
+<p style="font-size: 1rem; color: #495057; line-height: 1.6; margin-bottom: 25px;">
+    LIME explains each individual prediction by approximating the model locally with a simple 
+    <strong>linear equation</strong> of the form:
+</p>
+
+<p style="text-align: center; font-style: italic; color: #495057;">
+    Prediction ≈ w<sub>1</sub>x<sub>1</sub> + w<sub>2</sub>x<sub>2</sub> + ... + w<sub>n</sub>x<sub>n</sub> + b
+</p>
+
+<p style="font-size: 1rem; color: #495057; line-height: 1.6;">
+    Here, each <strong>w<sub>i</sub></strong> represents the contribution (or weight) of a particular feature 
+    <strong>x<sub>i</sub></strong> to the final prediction. The graphs below visualize these weights — 
+    positive bars(blue) indicate features pushing the prediction higher (toward higher absenteeism risk), 
+    while negative bars (red) indicate features pulling it lower.
+</p>
+        <div class="alert-info">
+            <strong>Visualization:</strong> Feature importance weights (LIME-based) for representative employees.
+        </div>
+
+        <!-- Placeholder for Local Explanation Image -->
+        <img src="{% static 'LIME.png' %}" alt="Local Explanation - BMI category example" style="width:100%; border-radius:8px; margin-top:10px;">
+    </div>
+
+<p style="font-size: 1rem; color: #495057; line-height: 1.6; margin-top: 25px;">
+    While LIME provides an intuitive and easily interpretable picture of how individual features influence a specific prediction, 
+    these <strong>local explanations are not always robust</strong>. The weights and even their directions (positive or negative influence) 
+    can vary across nearby data points as we can see above, reflecting the model’s local sensitivity. 
+    Therefore, to obtain a <strong>more stable and global understanding</strong> of how each feature contributes to absenteeism predictions across the entire dataset, 
+    we complement LIME with a <strong>global explainability technique</strong> described below.
+</p>
+    <div class="card">
+        <h2>Global Explanations (SHAP)</h2>
+        <p>
+            While LIME focuses on explaining individual predictions, 
+            <strong>SHAP (SHapley Additive exPlanations)</strong> provides a 
+            <em>global understanding</em> of the model’s overall behavior.  
+            SHAP values quantify the average impact of each feature across the entire dataset, 
+            allowing us to understand which factors consistently drive absenteeism predictions.
+        </p>
+
+        <p>
+            Below, we visualize the <strong>global SHAP values</strong> using two types of plots:
+        </p>
+        <ul>
+            <li><strong>Beeswarm Plot:</strong> Shows the distribution and direction of each feature’s effect across all employees.</li>
+            <li><strong>Global Mean Plot:</strong> Displays the average absolute SHAP value for each feature, 
+                highlighting the most influential factors in determining absenteeism.</li>
+        </ul>
+
+        <div class="alert-info">
+            <strong>Visualization 1:</strong> SHAP Beeswarm Plot (Feature-wise impact distribution)
+        </div>
+        <!-- Placeholder for Beeswarm Plot -->
+        <img src="{% static 'SHAP1.png' %}" alt="Global SHAP Beeswarm Plot" style="width:60%; border-radius:8px; margin-top:10px;">
+
+        <div class="alert-info" style="margin-top:20px;">
+            <strong>Visualization 2:</strong> Mean Absolute SHAP Values (Global Feature Importance)
+        </div>
+        <!-- Placeholder for Global Mean SHAP Plot -->
+        <img src="{% static 'SHAP2.png' %}" alt="Global Mean SHAP Plot" style="width:60%; border-radius:8px; margin-top:10px;">
+    </div>
+{% endblock %}
