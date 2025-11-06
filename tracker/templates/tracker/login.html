@@ -41,7 +41,7 @@
             font-weight: 600;
             color: #495057;
         }
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px;
             font-size: 1rem;
@@ -49,7 +49,7 @@
             border-radius: 4px;
             box-sizing: border-box;
         }
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus {
             border-color: #007bff;
             box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
             outline: none;
@@ -97,11 +97,28 @@
         <h1 style="margin: 0 auto 25px;">Sign In</h1>
 
         <!-- Django forms typically use {% csrf_token %} here -->
-        <form method="POST"> 
-            
+        <form method="POST">
+            {% csrf_token %}
+
+            {# Messages from the view #}
+            {% if error_message %}
+                <div style="color: #b00020; margin-bottom: 12px; font-weight:600;">{{ error_message }}</div>
+            {% endif %}
+            {% if success_message %}
+                <div style="color: #155724; background:#d4edda; padding:8px; border-radius:4px; margin-bottom:12px;">{{ success_message }}</div>
+            {% endif %}
+
             <div class="form-group">
-                <label for="id_username">Username/Email</label>
-                <input type="text" name="username" id="id_username" placeholder="Enter your username or email" required>
+                <label for="login_type">Login Type</label>
+                <select name="login_type" id="login_type" required>
+                    <option value="admin">Admin</option>
+                    <option value="employee">Employee</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="employee_id_group" style="display: none;">
+                <label for="employee_id">Employee ID</label>
+                <input type="text" name="employee_id" id="employee_id" placeholder="Enter your Employee ID">
             </div>
 
             <div class="form-group">
@@ -116,6 +133,28 @@
 
             <button type="submit" class="btn">Sign In</button>
         </form>
+
+        <script>
+            const loginType = document.getElementById('login_type');
+            const employeeIdGroup = document.getElementById('employee_id_group');
+
+            function setEmployeeFieldVisibility() {
+                if (loginType.value === 'employee') {
+                    employeeIdGroup.style.display = 'block';
+                    document.getElementById('employee_id').setAttribute('required', 'required');
+                } else {
+                    employeeIdGroup.style.display = 'none';
+                    document.getElementById('employee_id').removeAttribute('required');
+                }
+            }
+
+            // initialize on load
+            setEmployeeFieldVisibility();
+
+            loginType.addEventListener('change', function() {
+                setEmployeeFieldVisibility();
+            });
+        </script>
     </div>
 </body>
 </html>

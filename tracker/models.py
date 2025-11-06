@@ -49,7 +49,19 @@ class AbsenceLog(models.Model):
     reason = models.ForeignKey(AbsenceReason, on_delete=models.PROTECT)
     date_logged = models.DateField(default=timezone.now)
     predicted_hours = models.FloatField()  # <-- The model prediction is stored here
+    # The actual hours as later reported by manager/employee (optional)
+    actual_hours = models.FloatField(null=True, blank=True, help_text="Actual hours recorded by manager/employee")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ABSENT')
 
     def __str__(self):
         return f"{self.employee.full_name} - {self.reason.description}"
+
+class EmployeePassword(models.Model):
+    """
+    Stores employee usernames and hashed passwords for authentication.
+    """
+    username = models.CharField(max_length=150, unique=True)
+    password = models.CharField(max_length=128)  # Store hashed passwords
+
+    def __str__(self):
+        return self.username

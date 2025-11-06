@@ -9,14 +9,14 @@
 
     <!-- Summary Widgets -->
     <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-        <div class="card" style="flex: 1; text-align: center;">
-            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Predicted Hours Lost</p>
-            <h2 style="color: #dc3545; margin: 0;">{{ total_company_hours_lost|default:"0.0" }} Hours</h2>
+            <div class="card" style="flex: 1; text-align: center;">
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Predicted Hours Lost (Company)</p>
+            <h2 style="color: #dc3545; margin: 0;">{{ overall_company_hours_lost|default:"0.0" }} Hours</h2>
         </div>
 
         <div class="card" style="flex: 1; text-align: center;">
-            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Estimated Absence Cost</p>
-            <h2 style="color: #ffc107; margin: 0;">${{ total_company_cost_impact|floatformat:2|default:"0.00" }}</h2>
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Total Estimated Absence Cost (Company)</p>
+            <h2 style="color: #ffc107; margin: 0;">${{ overall_company_cost_impact|floatformat:2|default:"0.00" }}</h2>
         </div>
     </div>
     
@@ -25,16 +25,16 @@
         <form id="salary-filter-form" method="GET" style="display: flex; gap: 20px; align-items: flex-end;">
             <div class="form-group" style="flex: 2; margin-bottom: 0;">
                 <label for="employee_search">Filter by Employee Name/ID</label>
-                <input type="text" id="employee_search" name="search" placeholder="Start typing name or ID..." style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
+                <input type="text" id="employee_search" name="search" value="{{ search|default:'' }}" placeholder="Start typing name or ID..." style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
             </div>
             
             <div class="form-group" style="flex: 1; margin-bottom: 0;">
                 <label for="severity_filter">Filter by Absence Severity</label>
                 <select id="severity_filter" name="severity" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
-                    <option value="">All Absences</option>
-                    <option value="low">Low Impact (0 - 4h)</option>
-                    <option value="medium">Medium Risk (4.1 - 8h)</option>
-                    <option value="high">High Risk (> 8h)</option>
+                    <option value="" {% if not severity %}selected{% endif %}>All Absences</option>
+                    <option value="low" {% if severity == 'low' %}selected{% endif %}>Low Impact (0 - 4h)</option>
+                    <option value="medium" {% if severity == 'medium' %}selected{% endif %}>Medium Risk (4.1 - 8h)</option>
+                    <option value="high" {% if severity == 'high' %}selected{% endif %}>High Risk (> 8h)</option>
                 </select>
             </div>
             
@@ -48,7 +48,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Employee</th>
+                    <th>Employee Id</th>
                     <th>Predicted Hours Lost</th>
                     <th>Expected Work Hours</th>
                     <th>Estimated Absence Cost</th> 
@@ -75,7 +75,7 @@
                 {% endif %}
                 
                 <tr style="{{ row_style }}">
-                    <td>{{ item.name }}</td>
+                    <td>{{ item.employee_id }}</td>
                     <td>{{ hours|floatformat:1 }} hours</td> 
                     <td>{{ item.expected_work_hours|floatformat:1 }}</td>
                     <td style="font-weight: bold; color: #dc3545;">

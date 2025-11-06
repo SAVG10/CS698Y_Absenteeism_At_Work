@@ -1,12 +1,13 @@
 # tracker/views.py
 
 from django.shortcuts import render, redirect
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Q
 from django.utils import timezone
-from .models import Employee, AbsenceReason, AbsenceLog
+from .models import Employee, AbsenceReason, AbsenceLog, EmployeePassword
 import joblib
 import pandas as pd
 import json
+from django.contrib.auth.hashers import check_password, make_password
 
 # Recommendations aligned to REASON_MAP codes (import_data.py)
 REASON_RECOMMENDATIONS = {
@@ -121,12 +122,43 @@ def dashboard_view(request):
         'overall_absenteeism_rate': f"{absenteeism_rate:.2f}%",
         'estimated_compensation_impact': round(estimated_compensation_impact, 2),
         'total_predicted_hours': round(float(total_predicted_hours), 1),
-        'page': 'dashboard'
+        'page': 'dashboard',
     }
+
+    # --- Model accuracy metrics (based on logs where actual_hours is available) ---
+    logs_with_actual = AbsenceLog.objects.filter(actual_hours__isnull=False)
+    total_actual = logs_with_actual.count()
+    if total_actual > 0:
+        abs_errors = []
+        within_tol = 0
+        TOLERANCE_HOURS = 1.0  # Consider a prediction "accurate" if within +/- 1 hour
+        for log in logs_with_actual:
+            try:
+                pred = float(log.predicted_hours)
+                actual = float(log.actual_hours)
+            except Exception:
+                # Skip malformed entries
+                continue
+            diff = abs(pred - actual)
+            abs_errors.append(diff)
+            if diff <= TOLERANCE_HOURS:
+                within_tol += 1
+
+        # Mean Absolute Error (hours)
+        model_mae = sum(abs_errors) / len(abs_errors) if abs_errors else 0.0
+        # Accuracy = percent of predictions within tolerance
+        model_accuracy_pct = round((within_tol / total_actual) * 100.0)
+
+        context['model_accuracy'] = f"{model_accuracy_pct}%"
+        context['model_mae'] = round(model_mae, 2)
+    else:
+        context['model_accuracy'] = 'N/A'
+        context['model_mae'] = None
     return render(request, 'tracker/1_dashboard.html', context)
 
 # --- Tab 2: Log Absence View (THE FINAL FIX) ---
 def log_absence_view(request):
+    # Base context used by the template
     context = {
         'employees': Employee.objects.all(),
         'reasons': AbsenceReason.objects.all(),
@@ -134,96 +166,142 @@ def log_absence_view(request):
         'page': 'log_absence'
     }
 
-    if request.method == 'POST' and TO_BMI_MODEL:
-        try:
-            # 1. Get data from form
-            employee_id = int(request.POST.get('employee_id'))
-            reason_code = int(request.POST.get('reason_code'))
-            
-            # 2. Get the full employee object from DB
-            employee = Employee.objects.get(employee_id=employee_id)
-            reason = AbsenceReason.objects.get(reason_code=reason_code)
-            
-            # 3. Build the feature dictionary (X)
-            # This contains ONLY the features your inner model was trained on.
-            # NO 'Education', NO 'bmi_cat'.
-            feature_dict = {
-                'Reason for absence': reason_code,
-                'Month of absence': timezone.now().month,
-                'Day of the week': timezone.now().isoweekday() + 1, # Mon=2, Tue=3...
-                'Seasons': (timezone.now().month%12 + 3)//3, # Simple season logic
-                'Transportation expense': employee.transportation_expense,
-                'Distance from Residence to Work': employee.distance_from_residence_to_work,
-                'Service time': employee.service_time,
-                'Age': employee.age,
-                'Work load Average/day ': employee.work_load_average_day, 
-                'Hit target': employee.hit_target,
-                'Body mass index': employee.body_mass_index,
-            }
+    # Provide unresolved absences for the "real" mode (those that are still ABSENT and have no actual_hours)
+    context['unresolved_absences'] = (
+        AbsenceLog.objects
+        .filter(status='ABSENT', actual_hours__isnull=True)
+        .select_related('employee', 'reason')
+        .order_by('-date_logged')
+    )
 
-            # 4. Create the main DataFrame (X)
-            X_pred = pd.DataFrame([feature_dict])
+    # Handle POST actions: 'predict', 'log' (confirm & save prediction), and 'add_actual' (real data)
+    if request.method == 'POST':
+        action = request.POST.get('action', 'predict')
 
-            # 5. Create the SEPARATE sensitive_features Series
-            # We get the employee's BMI and categorize it, just as in Colab.
-            bins = [0, 18.5, 25, 30, 100]
-            labels = ['underweight', 'normal weight', 'over weight', 'obese']
-            
-            # Create a pandas Series, not a DataFrame column
-            sensitive_features_series = pd.cut(
-                [employee.body_mass_index], # Pass BMI as a list
-                bins=bins, 
-                labels=labels, 
-                right=False
-            )
-            
-            # tracker/views.py
-
-# ... (inside log_absence_view) ...
-
-            # 6. Make prediction
-            predicted_hours = TO_BMI_MODEL.predict(
-                X_pred
-            )[0]
-
-            predicted_hours =  round(float(predicted_hours), 2) # Round to 2 decimal places
-
-            if predicted_hours > 0:
-                # 7. Save to AbsenceLog (ONLY if > 0)
-                AbsenceLog.objects.create(
-                    employee=employee,
-                    reason=reason,
-                    predicted_hours=predicted_hours,
-                    status='ABSENT'
-                )
-                
-                # Set the success context
-                context['prediction_result'] = {
-                    'name': employee.full_name,
-                    'hours': predicted_hours
+        # === Add actual hours for an existing predicted absence ===
+        if action == 'add_actual':
+            try:
+                log_id = int(request.POST.get('absence_log_id'))
+                actual_val = float(request.POST.get('actual_hours_taken'))
+                log = AbsenceLog.objects.get(pk=log_id)
+                log.actual_hours = actual_val
+                # Mark as returned when actual hours are provided
+                log.status = 'RETURNED'
+                log.save()
+                context['actual_saved'] = {
+                    'name': log.employee.full_name,
+                    'hours': actual_val
                 }
+            except Exception as e:
+                context['error'] = f"Failed to save actual hours: {e}"
+                print(f"--- ERROR saving actual hours: {e} ---")
+
+        # === Prediction and logging flow (requires model) ===
+        elif action in ('predict', 'log'):
+            if not TO_BMI_MODEL:
+                context['error'] = 'Prediction model unavailable. Cannot run prediction.'
             else:
-                # Set a NEW context variable for 0-hour predictions
-                context['prediction_result_zero'] = {
-                    'name': employee.full_name,
-                }
+                try:
+                    # Collect inputs
+                    employee_id = int(request.POST.get('employee_id'))
+                    reason_code = int(request.POST.get('reason_code'))
 
-        except Exception as e:
-            context['error'] = f"Prediction failed: {e}. Check terminal for details."
-            print(f"--- PREDICTION ERROR: {e} ---")
+                    employee = Employee.objects.get(employee_id=employee_id)
+                    reason = AbsenceReason.objects.get(reason_code=reason_code)
+
+                    feature_dict = {
+                        'Reason for absence': reason_code,
+                        'Month of absence': timezone.now().month,
+                        'Day of the week': timezone.now().isoweekday() + 1,
+                        'Seasons': (timezone.now().month%12 + 3)//3,
+                        'Transportation expense': employee.transportation_expense,
+                        'Distance from Residence to Work': employee.distance_from_residence_to_work,
+                        'Service time': employee.service_time,
+                        'Age': employee.age,
+                        'Work load Average/day ': employee.work_load_average_day, 
+                        'Hit target': employee.hit_target,
+                        'Body mass index': employee.body_mass_index,
+                    }
+
+                    X_pred = pd.DataFrame([feature_dict])
+
+                    predicted_hours = TO_BMI_MODEL.predict(X_pred)[0]
+                    predicted_hours = round(float(predicted_hours), 2)
+
+                    # Expose values so the template can show the prediction and let the user confirm
+                    context['predicted_hours'] = predicted_hours
+                    context['selected_employee_id'] = str(employee_id)
+                    context['selected_reason_code'] = str(reason_code)
+
+                    # If this POST is the final 'log' action, save the record (allow override via actual_hours input)
+                    if action == 'log':
+                        save_hours = predicted_hours
+                        override = request.POST.get('actual_hours')
+                        if override:
+                            try:
+                                save_hours = float(override)
+                            except Exception:
+                                pass
+
+                        AbsenceLog.objects.create(
+                            employee=employee,
+                            reason=reason,
+                            predicted_hours=save_hours,
+                            status='ABSENT'
+                        )
+                        context['prediction_result'] = {
+                            'name': employee.full_name,
+                            'hours': save_hours
+                        }
+                    else:
+                        # action == 'predict' -> user will be shown the prediction and can confirm
+                        pass
+
+                except Exception as e:
+                    context['error'] = f"Prediction failed: {e}. Check terminal for details."
+                    print(f"--- PREDICTION ERROR: {e} ---")
 
     return render(request, 'tracker/2_log_absence.html', context)
 
 # --- Tab 3: Salaries View (No Change) ---
 def salaries_view(request):
     STANDARD_WORK_HOURS = 160.0
+    # Read filter params from GET
+    search = request.GET.get('search', '').strip()
+    severity = request.GET.get('severity', '').strip()  # low|medium|high or ''
+
+    # Start with all employees, then apply search filtering at the queryset level where possible
     employees = Employee.objects.all()
+    if search:
+        # If search is numeric, try matching employee_id; always also match name (case-insensitive)
+        try:
+            emp_id_val = int(search)
+        except Exception:
+            emp_id_val = None
+
+        if emp_id_val is not None:
+            # If the search is numeric, match employee_id exactly (do not match name substrings)
+            employees = employees.filter(employee_id=emp_id_val)
+        else:
+            # Non-numeric search: match on name (case-insensitive)
+            employees = employees.filter(full_name__icontains=search)
     salary_data = []
     
     current_month = timezone.now().month
     current_year = timezone.now().year
 
-    # Company-wide totals
+    # Compute overall (unfiltered) company totals for the current month so the header shows company-wide stats
+    overall_logs = AbsenceLog.objects.filter(date_logged__month=current_month, date_logged__year=current_year).select_related('employee')
+    overall_company_hours_lost = 0.0
+    overall_company_cost_impact = 0.0
+    for log in overall_logs:
+        try:
+            overall_company_hours_lost += float(log.predicted_hours)
+            overall_company_cost_impact += float(log.predicted_hours) * float(log.employee.hourly_rate)
+        except Exception:
+            continue
+
+    # Company-wide totals (used for table/footer are computed over the filtered set below)
     total_company_hours_lost = 0.0
     total_company_cost_impact = 0.0
 
@@ -245,18 +323,42 @@ def salaries_view(request):
         total_company_cost_impact += absence_cost
         
         salary_data.append({
-            'name': emp.full_name,
+            'employee_id': emp.employee_id,
+
             'total_absent_hours': total_absent_hours, # Pass the full float
             'expected_work_hours': round(expected_work_hours, 1),
             'absence_cost': round(absence_cost, 2),
             'expected_compensation': round(expected_compensation, 2)
         })
+    # Apply severity filter to the built salary_data list (severity depends on aggregated hours)
+    if severity in ('low', 'medium', 'high'):
+        def severity_ok(item):
+            h = float(item['total_absent_hours'] or 0.0)
+            if severity == 'low':
+                return 0.0 <= h <= 4.0
+            if severity == 'medium':
+                return 4.0 < h <= 8.0
+            if severity == 'high':
+                return h > 8.0
+            return True
+
+        filtered_salary_data = [itm for itm in salary_data if severity_ok(itm)]
+    else:
+        filtered_salary_data = salary_data
+
+    # Recompute totals for the filtered set
+    total_company_hours_lost = sum(float(it['total_absent_hours'] or 0.0) for it in filtered_salary_data)
+    total_company_cost_impact = sum(float(it['absence_cost'] or 0.0) for it in filtered_salary_data)
 
     context = {
-        'salary_data': salary_data,
+        'salary_data': filtered_salary_data,
         'total_company_hours_lost': round(total_company_hours_lost, 1),
         'total_company_cost_impact': round(total_company_cost_impact, 2),
-        'page': 'salaries'
+        'overall_company_hours_lost': round(overall_company_hours_lost, 1),
+        'overall_company_cost_impact': round(overall_company_cost_impact, 2),
+        'page': 'salaries',
+        'search': search,
+        'severity': severity,
     }
     return render(request, 'tracker/3_salaries.html', context)
 
@@ -264,3 +366,53 @@ def salaries_view(request):
 def about_model_view(request):
     context = {'page': 'about'}
     return render(request, 'tracker/4_about.html', context)
+
+# --- Login View ---
+def login_view(request):
+    if request.method == 'POST':
+        login_type = request.POST.get('login_type')  # 'admin' or 'employee'
+
+        if login_type == 'admin':
+            admin_password = request.POST.get('password')
+            if admin_password == 'admin':
+                # Redirect to dashboard for admin
+                return redirect('dashboard')  # Corrected URL pattern name
+            else:
+                error_message = 'Invalid admin password.'
+                return render(request, 'tracker/login.html', {'error_message': error_message})
+
+        elif login_type == 'employee':
+            employee_id = request.POST.get('employee_id')
+            password = request.POST.get('password')
+
+            try:
+                user = EmployeePassword.objects.get(username=employee_id)
+                if check_password(password, user.password):
+                    # Redirect to dashboard for employee
+                    return redirect('dashboard')  # Corrected URL pattern name
+                else:
+                    error_message = 'Invalid employee password.'
+            except EmployeePassword.DoesNotExist:
+                error_message = 'Employee does not exist.'
+
+            return render(request, 'tracker/login.html', {'error_message': error_message})
+
+    return render(request, 'tracker/login.html')
+
+# --- Password Reset View ---
+def password_reset_view(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        new_password = request.POST.get('new_password')
+
+        try:
+            user = EmployeePassword.objects.get(username=username)
+            user.password = make_password(new_password)
+            user.save()
+            success_message = 'Password reset successfully.'
+            return render(request, 'tracker/password_reset.html', {'success_message': success_message})
+        except EmployeePassword.DoesNotExist:
+            error_message = 'User does not exist.'
+            return render(request, 'tracker/password_reset.html', {'error_message': error_message})
+
+    return render(request, 'tracker/password_reset.html')
