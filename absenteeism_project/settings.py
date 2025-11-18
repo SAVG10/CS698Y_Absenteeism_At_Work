@@ -31,6 +31,9 @@ SECRET_KEY = 'django-insecure-ulek3xz04u3rp(fhk!3l+04bb^c1b(q6bs(a=kgrum&tm^vurl
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
+# DEBUG = os.environ.get("DEBUG", "True") == "True"
+# ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+
 
 # Application definition
 
@@ -46,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -53,7 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 ROOT_URLCONF = 'absenteeism_project.urls'
 
 TEMPLATES = [

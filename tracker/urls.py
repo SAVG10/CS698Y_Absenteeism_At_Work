@@ -27,4 +27,6 @@ urlpatterns = [
     path('employee/profile/', views.edit_profile_view, name='edit_profile'),
     # Sign out route
     path('logout/', views.signout_view, name='signout'),
+    # Model Explainations (new)
+    path('model_explanations/', views.model_explanations_view, name='model_explanations'),
 ]
