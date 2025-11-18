@@ -32,7 +32,9 @@
         </div>
     {% endif %}
 
+    <!-- ========================================================= -->
     <!-- PREDICTION MODE (DEFAULT) -->
+    <!-- ========================================================= -->
     {% if request.GET.mode|default:'predict' == 'predict' %}
 
         {% if not predicted_hours %}
@@ -82,9 +84,13 @@
                     <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
                     <input type="hidden" name="reason_code" value="{{ selected_reason_code }}">
                     <input type="hidden" name="action" value="log">
+                    
+                    <!-- CRITICAL CHANGE: Pass the predicted hours directly for logging -->
+                    <input type="hidden" name="predicted_hours_final" value="{{ predicted_hours|floatformat:1 }}"> 
 
                     <div style="margin-bottom: 20px;">
                         <strong style="font-size: 1.2rem; color: #007bff;">Predicted Absence Time:</strong>
+                        <!-- Display the final predicted time prominently -->
                         <span style="font-size: 1.8rem; font-weight: bold;">{{ predicted_hours|hours_to_duration }}</span>
                         
                         <span style="display: inline-block; margin-left: 20px; color: #6c757d;">
@@ -103,15 +109,11 @@
                         </ul>
                     </div>
 
-                    <div class="form-group" style="max-width: 300px;">
-                        <label for="actual_hours">Actual/Override Hours (in hours, e.g., 8.0)</label>
-                        <input type="number" step="0.5" name="actual_hours" id="actual_hours" 
-                               value="{{ predicted_hours|floatformat:1 }}" required class="form-control">
-                    </div>
+                    <!-- REMOVED: Actual/Override Hours Input Field -->
 
                     <div style="margin-top: 20px;">
                         <button type="submit" class="btn btn-primary" style="background-color: #28a745;">
-                            Confirm & Log Absence
+                            Confirm & Log Absence ({{ predicted_hours|hours_to_duration }})
                         </button>
                         <a href="{% url 'log_absence' %}" class="btn" style="background-color: #6c757d; color: white; text-decoration: none;">
                             Cancel/Start Over
@@ -121,7 +123,7 @@
             </div>
         {% endif %}
 
-    <!-- REAL DATA MODE -->
+
     {% elif request.GET.mode == 'real' %}
         <div class="card">
             <h2>Add Actual Data (Correct Predicted Absence)</h2>
