@@ -32,9 +32,7 @@
         </div>
     {% endif %}
 
-    <!-- ========================================================= -->
     <!-- PREDICTION MODE (DEFAULT) -->
-    <!-- ========================================================= -->
     {% if request.GET.mode|default:'predict' == 'predict' %}
 
         {% if not predicted_hours %}
@@ -67,7 +65,7 @@
                     </div>
                     
                     <p style="font-size: 0.9rem;">
-                        <strong>Note:</strong> The prediction uses features pulled automatically from the employee's record, including **Age, BMI, Service Time, Social Smoker Status, and number of children**. The current month and day will be used.
+                        <strong>Note:</strong> The prediction uses features pulled automatically from the employee's record, including <strong>Age, BMI, Service Time, Social Smoker Status, and number of children</strong>. The current month and day will be used.
                     </p>
 
                     <button type="submit" name="action" value="predict" class="btn">Predict Absence Hours</button>
@@ -123,9 +121,7 @@
             </div>
         {% endif %}
 
-    <!-- ========================================================= -->
     <!-- REAL DATA MODE -->
-    <!-- ========================================================= -->
     {% elif request.GET.mode == 'real' %}
         <div class="card">
             <h2>Add Actual Data (Correct Predicted Absence)</h2>

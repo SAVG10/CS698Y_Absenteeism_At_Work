@@ -8,6 +8,7 @@ import joblib
 import pandas as pd
 import json
 from django.contrib.auth.hashers import check_password, make_password
+from django.contrib import messages
 
 # Recommendations aligned to REASON_MAP codes (import_data.py)
 REASON_RECOMMENDATIONS = {
@@ -44,7 +45,6 @@ REASON_RECOMMENDATIONS = {
 DEFAULT_RECOMMENDATION = "Review absence patterns and employee support policies."
 
 # --- 1. MODEL LOADING ---
-# Load the ThresholdOptimizer you exported from Colab
 try:
     MODEL_PATH = 'tracker/ml_model/to_bmi_model.joblib'
     TO_BMI_MODEL = joblib.load(MODEL_PATH)
@@ -56,11 +56,11 @@ except Exception as e:
     print(f"--- ERROR loading model: {e} ---")
     TO_BMI_MODEL = None
 
-# --- Tab 1: Dashboard View (No Change) ---
+# --- Tab 1: Dashboard View  ---
 def dashboard_view(request):
     # Only admins may view the dashboard
     if not request.session.get('is_admin'):
-        # If an employee is signed in, send them to their profile; otherwise ask to login
+        
         if request.session.get('employee_id'):
             return redirect('edit_profile')
         return redirect('login')
@@ -116,7 +116,6 @@ def dashboard_view(request):
         try:
             estimated_compensation_impact += float(log.predicted_hours) * float(log.employee.hourly_rate)
         except Exception:
-            # In case of missing employee/hourly_rate, skip that log
             continue
 
     context = {
@@ -163,15 +162,13 @@ def dashboard_view(request):
         context['model_mae'] = None
     return render(request, 'tracker/1_dashboard.html', context)
 
-# --- Tab 2: Log Absence View (THE FINAL FIX) ---
+# --- Tab 2: Log Absence View  ---
 def log_absence_view(request):
-    # Only admins may log absences via this interface
     if not request.session.get('is_admin'):
         if request.session.get('employee_id'):
             return redirect('edit_profile')
         return redirect('login')
 
-    # Base context used by the template
     context = {
         'employees': Employee.objects.all(),
         'reasons': AbsenceReason.objects.all(),
@@ -179,7 +176,6 @@ def log_absence_view(request):
         'page': 'log_absence'
     }
 
-    # Provide unresolved absences for the "real" mode (those that are still ABSENT and have no actual_hours)
     context['unresolved_absences'] = (
         AbsenceLog.objects
         .filter(status='ABSENT', actual_hours__isnull=True)
@@ -187,18 +183,15 @@ def log_absence_view(request):
         .order_by('-date_logged')
     )
 
-    # Handle POST actions: 'predict', 'log' (confirm & save prediction), and 'add_actual' (real data)
     if request.method == 'POST':
         action = request.POST.get('action', 'predict')
 
-        # === Add actual hours for an existing predicted absence ===
         if action == 'add_actual':
             try:
                 log_id = int(request.POST.get('absence_log_id'))
                 actual_val = float(request.POST.get('actual_hours_taken'))
                 log = AbsenceLog.objects.get(pk=log_id)
                 log.actual_hours = actual_val
-                # Mark as returned when actual hours are provided
                 log.status = 'RETURNED'
                 log.save()
                 context['actual_saved'] = {
@@ -209,13 +202,12 @@ def log_absence_view(request):
                 context['error'] = f"Failed to save actual hours: {e}"
                 print(f"--- ERROR saving actual hours: {e} ---")
 
-        # === Prediction and logging flow (requires model) ===
         elif action in ('predict', 'log'):
             if not TO_BMI_MODEL:
                 context['error'] = 'Prediction model unavailable. Cannot run prediction.'
             else:
                 try:
-                    # Collect inputs
+
                     employee_id = int(request.POST.get('employee_id'))
                     reason_code = int(request.POST.get('reason_code'))
 
@@ -241,12 +233,10 @@ def log_absence_view(request):
                     predicted_hours = TO_BMI_MODEL.predict(X_pred)[0]
                     predicted_hours = round(float(predicted_hours), 2)
 
-                    # Expose values so the template can show the prediction and let the user confirm
                     context['predicted_hours'] = predicted_hours
                     context['selected_employee_id'] = str(employee_id)
                     context['selected_reason_code'] = str(reason_code)
 
-                    # If this POST is the final 'log' action, save the record (allow override via actual_hours input)
                     if action == 'log':
                         save_hours = predicted_hours
                         override = request.POST.get('actual_hours')
@@ -267,7 +257,6 @@ def log_absence_view(request):
                             'hours': save_hours
                         }
                     else:
-                        # action == 'predict' -> user will be shown the prediction and can confirm
                         pass
 
                 except Exception as e:
@@ -285,21 +274,16 @@ def salaries_view(request):
         return redirect('login')
 
     STANDARD_WORK_HOURS = 160.0
-    # Read filter params from GET
     search = request.GET.get('search', '').strip()
     severity = request.GET.get('severity', '').strip()  # low|medium|high or ''
-
-    # Start with all employees, then apply search filtering at the queryset level where possible
     employees = Employee.objects.all()
     if search:
-        # If search is numeric, try matching employee_id; always also match name (case-insensitive)
         try:
             emp_id_val = int(search)
         except Exception:
             emp_id_val = None
 
         if emp_id_val is not None:
-            # If the search is numeric, match employee_id exactly (do not match name substrings)
             employees = employees.filter(employee_id=emp_id_val)
         else:
             # Non-numeric search: match on name (case-insensitive)
@@ -309,7 +293,6 @@ def salaries_view(request):
     current_month = timezone.now().month
     current_year = timezone.now().year
 
-    # Compute overall (unfiltered) company totals for the current month so the header shows company-wide stats
     overall_logs = AbsenceLog.objects.filter(date_logged__month=current_month, date_logged__year=current_year).select_related('employee')
     overall_company_hours_lost = 0.0
     overall_company_cost_impact = 0.0
@@ -320,7 +303,6 @@ def salaries_view(request):
         except Exception:
             continue
 
-    # Company-wide totals (used for table/footer are computed over the filtered set below)
     total_company_hours_lost = 0.0
     total_company_cost_impact = 0.0
 
@@ -349,7 +331,6 @@ def salaries_view(request):
             'absence_cost': round(absence_cost, 2),
             'expected_compensation': round(expected_compensation, 2)
         })
-    # Apply severity filter to the built salary_data list (severity depends on aggregated hours)
     if severity in ('low', 'medium', 'high'):
         def severity_ok(item):
             h = float(item['total_absent_hours'] or 0.0)
@@ -381,7 +362,7 @@ def salaries_view(request):
     }
     return render(request, 'tracker/3_salaries.html', context)
 
-# --- Tab 4: About the Model View (No Change) ---
+# --- Tab 4: About the Model View  ---
 def about_model_view(request):
     # Only admins may view the about/model details
     if not request.session.get('is_admin'):
@@ -424,7 +405,6 @@ def login_view(request):
                     # Store employee id in session and redirect to their profile edit page
                     request.session['employee_id'] = str(employee_id)
                     request.session['is_employee'] = True
-                    # Ensure admin flag is not set
                     request.session.pop('is_admin', None)
                     return redirect('edit_profile')
                 else:
@@ -514,7 +494,9 @@ def signup_view(request):
                 )
 
             success_message = f"Account created. Your Employee ID is {emp.employee_id}. Use this ID to sign in."
-            return render(request, 'tracker/login.html', {'success_message': success_message})
+            # Use messages and redirect to avoid rendering the login template directly
+            messages.success(request, success_message)
+            return redirect('login')
 
         except Exception as e:
             error_message = f"Failed to create employee account: {e}"

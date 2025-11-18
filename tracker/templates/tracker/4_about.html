@@ -76,7 +76,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- HAII TOOLTIP LOGIC (Copied from previous step) ---
+          
             const targets = document.querySelectorAll('.tooltip-target');
             let tooltip = null;
 
@@ -118,11 +118,9 @@
                 });
             });
 
-            // --- BMI FAIRNESS CHART LOGIC (Requires data passed from Django view) ---
+            
             const ctx = document.getElementById('bmiFairnessChart');
 
-            // PLACEHOLDER DATA: YOU MUST REPLACE THIS WITH DATA FROM YOUR DJANGO VIEW
-            // Data derived from running the python code you provided (accuracy_score for BMI)
             const bmiLabels = JSON.parse('{{ bmi_labels|safe|default:"[\"normal weight\", \"over weight\", \"obese\", \"under weight\"]" }}');
             const baselineData = JSON.parse('{{ bmi_baseline_accuracy|safe|default:"[0.85, 0.78, 0.65, 0.72]" }}');
             const fairData = JSON.parse('{{ bmi_fair_accuracy|safe|default:"[0.83, 0.80, 0.75, 0.78]" }}');

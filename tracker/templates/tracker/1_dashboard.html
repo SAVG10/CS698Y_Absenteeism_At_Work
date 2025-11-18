@@ -168,11 +168,11 @@
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                // Display the full, original label in the tooltip title
+                            
                                 title: function(context) {
                                     return context[0].label;
                                 },
-                                // Keep the data label clean
+                      
                                 label: function(context) {
                                     let label = context.dataset.label || '';
                                     if (label) {

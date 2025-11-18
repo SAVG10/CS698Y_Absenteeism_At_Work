@@ -1,7 +1,7 @@
 # tracker/admin.py
 
 from django.contrib import admin
-from .models import AbsenceReason, Employee, AbsenceLog
+from .models import AbsenceReason, Employee, AbsenceLog, EmployeePassword
 
 class EmployeeAdmin(admin.ModelAdmin):
     list_display = ('employee_id', 'full_name', 'age', 'education', 'service_time', 'hourly_rate')
@@ -16,3 +16,11 @@ class AbsenceLogAdmin(admin.ModelAdmin):
 admin.site.register(Employee, EmployeeAdmin)
 admin.site.register(AbsenceReason, AbsenceReasonAdmin)
 admin.site.register(AbsenceLog, AbsenceLogAdmin)
+
+
+class EmployeePasswordAdmin(admin.ModelAdmin):
+    list_display = ('username',)
+    search_fields = ('username',)
+
+
+admin.site.register(EmployeePassword, EmployeePasswordAdmin)

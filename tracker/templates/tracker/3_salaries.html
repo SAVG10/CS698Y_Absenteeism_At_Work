@@ -59,7 +59,7 @@
                 {% for item in salary_data %}
                 {% with hours=item.total_absent_hours %}
                 
-                {# Initialize the row_style variable outside the if block #}
+                
                 {% if hours > 10.0 %}
                     {# Light Red for > 10 hours (High Risk) #}
                     {% with row_style='background-color: #f8d7da; border-left: 3px solid #dc3545;' %}
