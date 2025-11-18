@@ -1,7 +1,7 @@
 # tracker/views.py
 
 from django.shortcuts import render, redirect
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Max
 from django.utils import timezone
 from .models import Employee, AbsenceReason, AbsenceLog, EmployeePassword
 import joblib
@@ -58,6 +58,13 @@ except Exception as e:
 
 # --- Tab 1: Dashboard View (No Change) ---
 def dashboard_view(request):
+    # Only admins may view the dashboard
+    if not request.session.get('is_admin'):
+        # If an employee is signed in, send them to their profile; otherwise ask to login
+        if request.session.get('employee_id'):
+            return redirect('edit_profile')
+        return redirect('login')
+
     current_absences = AbsenceLog.objects.filter(status='ABSENT').order_by('-date_logged')
 
     # Aggregate total hours by reason (all time) with reason code + description
@@ -158,6 +165,12 @@ def dashboard_view(request):
 
 # --- Tab 2: Log Absence View (THE FINAL FIX) ---
 def log_absence_view(request):
+    # Only admins may log absences via this interface
+    if not request.session.get('is_admin'):
+        if request.session.get('employee_id'):
+            return redirect('edit_profile')
+        return redirect('login')
+
     # Base context used by the template
     context = {
         'employees': Employee.objects.all(),
@@ -265,6 +278,12 @@ def log_absence_view(request):
 
 # --- Tab 3: Salaries View (No Change) ---
 def salaries_view(request):
+    # Only admins may view salaries
+    if not request.session.get('is_admin'):
+        if request.session.get('employee_id'):
+            return redirect('edit_profile')
+        return redirect('login')
+
     STANDARD_WORK_HOURS = 160.0
     # Read filter params from GET
     search = request.GET.get('search', '').strip()
@@ -364,6 +383,12 @@ def salaries_view(request):
 
 # --- Tab 4: About the Model View (No Change) ---
 def about_model_view(request):
+    # Only admins may view the about/model details
+    if not request.session.get('is_admin'):
+        if request.session.get('employee_id'):
+            return redirect('edit_profile')
+        return redirect('login')
+
     context = {'page': 'about'}
     return render(request, 'tracker/4_about.html', context)
 
@@ -374,9 +399,13 @@ def login_view(request):
 
         if login_type == 'admin':
             admin_password = request.POST.get('password')
-            if admin_password == 'admin':
-                # Redirect to dashboard for admin
-                return redirect('dashboard')  # Corrected URL pattern name
+            if admin_password and str(admin_password).strip() == 'admin':
+                # Set admin session flag and redirect to dashboard for admin
+                request.session['is_admin'] = True
+                # Ensure any employee session is cleared
+                request.session.pop('employee_id', None)
+                request.session.pop('is_employee', None)
+                return redirect('dashboard')
             else:
                 error_message = 'Invalid admin password.'
                 return render(request, 'tracker/login.html', {'error_message': error_message})
@@ -385,15 +414,23 @@ def login_view(request):
             employee_id = request.POST.get('employee_id')
             password = request.POST.get('password')
 
+            # Basic validation
+            if not employee_id:
+                return render(request, 'tracker/login.html', {'error_message': 'Please enter your Employee ID.'})
+
             try:
-                user = EmployeePassword.objects.get(username=employee_id)
-                if check_password(password, user.password):
-                    # Redirect to dashboard for employee
-                    return redirect('dashboard')  # Corrected URL pattern name
+                user = EmployeePassword.objects.get(username=str(employee_id))
+                if password and check_password(password, user.password):
+                    # Store employee id in session and redirect to their profile edit page
+                    request.session['employee_id'] = str(employee_id)
+                    request.session['is_employee'] = True
+                    # Ensure admin flag is not set
+                    request.session.pop('is_admin', None)
+                    return redirect('edit_profile')
                 else:
                     error_message = 'Invalid employee password.'
             except EmployeePassword.DoesNotExist:
-                error_message = 'Employee does not exist.'
+                error_message = 'Employee does not exist. You can create an account using "Create account".'
 
             return render(request, 'tracker/login.html', {'error_message': error_message})
 
@@ -401,18 +438,170 @@ def login_view(request):
 
 # --- Password Reset View ---
 def password_reset_view(request):
+    # Password reset functionality removed: redirect all access back to login
+    return redirect('login')
+
+
+def signup_view(request):
+    """Create a new Employee record and an EmployeePassword entry.
+
+    The form posts fields from `user_signup.html`. On success we render
+    the login page with a `success_message` including the assigned employee id.
+    """
     if request.method == 'POST':
-        username = request.POST.get('username')
-        new_password = request.POST.get('new_password')
+        # Ensure this POST is from the signup form (prevents accidental creation)
+        if request.POST.get('form_origin') != 'signup':
+            return render(request, 'tracker/user_signup.html')
 
         try:
-            user = EmployeePassword.objects.get(username=username)
-            user.password = make_password(new_password)
-            user.save()
-            success_message = 'Password reset successfully.'
-            return render(request, 'tracker/password_reset.html', {'success_message': success_message})
-        except EmployeePassword.DoesNotExist:
-            error_message = 'User does not exist.'
-            return render(request, 'tracker/password_reset.html', {'error_message': error_message})
+            # Basic info
+            full_name = request.POST.get('full_name', '').strip()
+            hourly_rate = request.POST.get('hourly_rate') or 30.00
 
-    return render(request, 'tracker/password_reset.html')
+            # Operational fields used by the model
+            age = int(request.POST.get('age') or 0)
+            service_time = int(request.POST.get('service_time') or 0)
+            weight = float(request.POST.get('weight') or 0.0)
+            height = float(request.POST.get('height') or 0.0)  # cm
+            transport_expense = int(request.POST.get('transport_expense') or 0)
+            distance = int(request.POST.get('distance') or 0)
+            hit_target = int(request.POST.get('hit_target') or 0)
+            work_load = float(request.POST.get('work_load') or 0.0)
+            education = int(request.POST.get('education') or 1)
+
+            # Password
+            password = request.POST.get('password')
+            confirm_password = request.POST.get('confirm_password')
+
+            # Compute BMI (kg / m^2)
+            body_mass_index = 0.0
+            if weight > 0 and height > 0:
+                height_m = height / 100.0
+                body_mass_index = round(weight / (height_m * height_m), 2)
+
+            # Require a full_name and matching passwords before creating account
+            if not full_name:
+                return render(request, 'tracker/user_signup.html', {'error_message': 'Full name is required.'})
+
+            # Determine next employee_id
+            max_id = Employee.objects.aggregate(max_id=Max('employee_id'))['max_id'] or 0
+            next_id = int(max_id) + 1
+
+            # Server-side validation: ensure passwords match (if provided)
+            if password and confirm_password and password != confirm_password:
+                return render(request, 'tracker/user_signup.html', {'error_message': 'Passwords do not match.'})
+
+            # Create Employee record
+            emp = Employee.objects.create(
+                employee_id=next_id,
+                full_name=full_name,
+                hourly_rate=hourly_rate,
+                transportation_expense=transport_expense,
+                distance_from_residence_to_work=distance,
+                service_time=service_time,
+                age=age,
+                work_load_average_day=work_load,
+                hit_target=hit_target,
+                education=education,
+                body_mass_index=body_mass_index,
+            )
+
+            # Create EmployeePassword (username is the employee id string so login uses Employee ID)
+            if password:
+                EmployeePassword.objects.create(
+                    username=str(emp.employee_id),
+                    password=make_password(password)
+                )
+
+            success_message = f"Account created. Your Employee ID is {emp.employee_id}. Use this ID to sign in."
+            return render(request, 'tracker/login.html', {'success_message': success_message})
+
+        except Exception as e:
+            error_message = f"Failed to create employee account: {e}"
+            return render(request, 'tracker/user_signup.html', {'error_message': error_message})
+
+    # GET -> show signup form
+    return render(request, 'tracker/user_signup.html')
+
+
+def edit_profile_view(request):
+    """Allow a signed-in employee to edit their stored details.
+
+    Uses session `employee_id` set at login. Renders a form similar to signup
+    and updates the `Employee` record. If a new password is provided, updates
+    or creates the `EmployeePassword` entry.
+    """
+    emp_id = request.session.get('employee_id')
+    if not emp_id:
+        return redirect('login')
+
+    try:
+        emp = Employee.objects.get(employee_id=int(emp_id))
+    except Employee.DoesNotExist:
+        return redirect('login')
+
+    if request.method == 'POST':
+        try:
+            full_name = request.POST.get('full_name', emp.full_name).strip()
+            hourly_rate = request.POST.get('hourly_rate') or emp.hourly_rate
+
+            age = int(request.POST.get('age') or emp.age)
+            service_time = int(request.POST.get('service_time') or emp.service_time)
+            transport_expense = int(request.POST.get('transport_expense') or emp.transportation_expense)
+            distance = int(request.POST.get('distance') or emp.distance_from_residence_to_work)
+            hit_target = int(request.POST.get('hit_target') or emp.hit_target)
+            work_load = float(request.POST.get('work_load') or emp.work_load_average_day)
+            education = int(request.POST.get('education') or emp.education)
+
+            # Optional weight/height to recompute BMI
+            weight = request.POST.get('weight')
+            height = request.POST.get('height')
+            if weight and height:
+                try:
+                    w = float(weight)
+                    h = float(height)
+                    if w > 0 and h > 0:
+                        h_m = h / 100.0
+                        emp.body_mass_index = round(w / (h_m * h_m), 2)
+                except Exception:
+                    pass
+
+            # Update employee fields
+            emp.full_name = full_name
+            emp.hourly_rate = hourly_rate
+            emp.age = age
+            emp.service_time = service_time
+            emp.transportation_expense = transport_expense
+            emp.distance_from_residence_to_work = distance
+            emp.hit_target = hit_target
+            emp.work_load_average_day = work_load
+            emp.education = education
+            emp.save()
+
+            # Update password if provided
+            new_password = request.POST.get('password')
+            if new_password:
+                p_obj, created = EmployeePassword.objects.get_or_create(username=str(emp.employee_id))
+                p_obj.password = make_password(new_password)
+                p_obj.save()
+
+            success_message = 'Profile updated successfully.'
+            return render(request, 'tracker/user_edit.html', {'employee': emp, 'success_message': success_message})
+        except Exception as e:
+            error_message = f'Failed to update profile: {e}'
+            return render(request, 'tracker/user_edit.html', {'employee': emp, 'error_message': error_message})
+
+    # GET: render form pre-filled
+    return render(request, 'tracker/user_edit.html', {'employee': emp})
+
+
+def signout_view(request):
+    """Clear the session and redirect to login."""
+    try:
+        # Clear entire session to remove admin/employee flags and related data
+        request.session.flush()
+    except Exception:
+        # Fallback: remove known keys
+        for key in ('employee_id', 'is_employee', 'is_admin'):
+            request.session.pop(key, None)
+    return redirect('login')

@@ -126,9 +126,9 @@
                 <input type="password" name="password" id="id_password" placeholder="Enter your password" required>
             </div>
 
-            <!-- New Forgot Password Link -->
+            <!-- Create Account link for employees (no forgot-password link) -->
             <div class="link-container">
-                <a href="{% url 'password_reset' %}">Forgot password?</a>
+                <span id="create-account-wrapper" style="display:none; margin-left:8px;"><a id="create-account" href="{% url 'user_signup' %}">Create account</a></span>
             </div>
 
             <button type="submit" class="btn">Sign In</button>
@@ -151,8 +151,23 @@
             // initialize on load
             setEmployeeFieldVisibility();
 
+            // Update the visibility of the Create Account link depending on selected login type
+            const createAccountWrapper = document.getElementById('create-account-wrapper');
+            function updateAuxLinks() {
+                if (loginType.value === 'employee') {
+                    // Show create-account link for employees
+                    createAccountWrapper.style.display = 'inline';
+                } else {
+                    createAccountWrapper.style.display = 'none';
+                }
+            }
+
+            // initialize extra links on load
+            updateAuxLinks();
+
             loginType.addEventListener('change', function() {
                 setEmployeeFieldVisibility();
+                updateAuxLinks();
             });
         </script>
     </div>

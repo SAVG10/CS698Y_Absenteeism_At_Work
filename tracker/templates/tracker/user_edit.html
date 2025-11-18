@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - Absenteeism AI</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8f9fa }
+        .signup-container { width:100%; max-width:700px; padding:30px; background:white; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1) }
+        h1 { font-size:1.8rem; color:#343a40; margin-bottom:5px; text-align:center }
+        .subtitle { text-align:center; color:#6c757d; margin-bottom:25px }
+        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px }
+        .form-full { grid-column:1 / -1 }
+        .form-group { margin-bottom:10px }
+        label { display:block; margin-bottom:5px; font-weight:600; color:#495057 }
+        input, select { width:100%; padding:10px; font-size:1rem; border:1px solid #ced4da; border-radius:4px; box-sizing:border-box }
+        .btn { width:100%; background-color:#28a745; color:white; padding:12px 15px; border:none; border-radius:4px; font-size:1.1rem; cursor:pointer; margin-top:15px }
+        .privacy-note { grid-column:1 / -1; background:#e6f7e6; border:1px solid #c8e6c9; color:#1e8449; padding:10px; border-radius:4px; font-size:0.9rem; text-align:center; font-weight:500 }
+        .error-message { grid-column:1 / -1; color:#dc3545; text-align:center; margin-top:-15px; margin-bottom:15px; font-weight:600 }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h1>Edit Your Profile</h1>
+            <div style="font-size:0.9rem;"><a href="{% url 'signout' %}">Sign out</a></div>
+        </div>
+        <p class="subtitle">Update your details used for predictions and payroll calculations.</p>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            {% if error_message %}
+                <div class="error-message">{{ error_message }}</div>
+            {% endif %}
+            {% if success_message %}
+                <div class="privacy-note" style="background:#d4edda; border-color:#c3e6cb; color:#155724;">{{ success_message }}</div>
+            {% endif %}
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="id_full_name">Full Name</label>
+                    <input type="text" name="full_name" id="id_full_name" value="{{ employee.full_name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_hourly_rate">Hourly Rate</label>
+                    <input type="number" name="hourly_rate" id="id_hourly_rate" value="{{ employee.hourly_rate }}" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_age">Age</label>
+                    <input type="number" name="age" id="id_age" value="{{ employee.age }}" min="18" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_service_time">Service Time (Years)</label>
+                    <input type="number" name="service_time" id="id_service_time" value="{{ employee.service_time }}" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_weight">Weight (kg)</label>
+                    <input type="number" name="weight" id="id_weight" step="0.1" min="30" max="200" placeholder="Optional: enter to recompute BMI">
+                </div>
+
+                <div class="form-group">
+                    <label for="id_height">Height (cm)</label>
+                    <input type="number" name="height" id="id_height" step="1" min="100" max="250" placeholder="Optional: enter to recompute BMI">
+                </div>
+
+                <div class="form-group">
+                    <label for="id_transport_expense">Transportation Expense</label>
+                    <input type="number" name="transport_expense" id="id_transport_expense" value="{{ employee.transportation_expense }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_distance">Distance to Work (km)</label>
+                    <input type="number" name="distance" id="id_distance" value="{{ employee.distance_from_residence_to_work }}" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_hit_target">Hit Target (\%)</label>
+                    <input type="number" name="hit_target" id="id_hit_target" value="{{ employee.hit_target }}" min="0" max="100" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_work_load">Work Load Avg/Day</label>
+                    <input type="number" name="work_load" id="id_work_load" value="{{ employee.work_load_average_day }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_education">Education Level</label>
+                    <select name="education" id="id_education" required>
+                        <option value="1" {% if employee.education == 1 %}selected{% endif %}>1 - High School</option>
+                        <option value="2" {% if employee.education == 2 %}selected{% endif %}>2 - Graduate</option>
+                        <option value="3" {% if employee.education == 3 %}selected{% endif %}>3 - Postgraduate</option>
+                        <option value="4" {% if employee.education == 4 %}selected{% endif %}>4 - Master/Doctor</option>
+                    </select>
+                </div>
+
+                <div class="form-group form-full">
+                    <label for="id_password">Set New Password (leave blank to keep current)</label>
+                    <input type="password" name="password" id="id_password">
+                </div>
+
+                <div class="privacy-note">Your personal data is protected and used only for predictions and payroll.</div>
+            </div>
+
+            <button type="submit" class="btn">Save Changes</button>
+        </form>
+    </div>
+</body>
+</html>

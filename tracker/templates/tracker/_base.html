@@ -133,6 +133,12 @@
     </nav>
 
     <main class="content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div></div>
+            <div style="font-size:0.95rem;">
+                    <a href="{% url 'signout' %}">Sign out</a>
+            </div>
+        </div>
         {% block content %}
         {% endblock %}
     </main>

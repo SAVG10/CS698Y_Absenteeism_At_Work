@@ -137,6 +137,15 @@
 
         <!-- Added onsubmit handler to validate password before submission -->
         <form method="POST" onsubmit="return validatePassword();"> 
+            <input type="hidden" name="form_origin" value="signup">
+            {% csrf_token %}
+
+            {% if error_message %}
+                <div class="error-message" style="display:block;">{{ error_message }}</div>
+            {% endif %}
+            {% if success_message %}
+                <div class="privacy-note" style="background:#d4edda; border-color:#c3e6cb; color:#155724;">{{ success_message }}</div>
+            {% endif %}
             
             <!-- SECTION 1: ACCOUNT DETAILS -->
             <div class="form-grid">
@@ -148,8 +157,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="id_username">Username/Email</label>
-                    <input type="email" name="username" id="id_username" placeholder="Used for sign-in" required>
+                    <!-- Username/Email removed: authentication uses Employee ID + password -->
                 </div>
 
                 <div class="form-group">
@@ -221,27 +229,6 @@
                     <label for="id_work_load">Work Load Avg/Day</label>
                     <input type="number" name="work_load" id="id_work_load" placeholder="e.g., 260000" required>
                 </div>
-                
-                <div class="form-group">
-                    <label for="id_children">Number of Children</label>
-                    <select name="children" id="id_children">
-                        <option value="0">0</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3+</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="id_pets">Number of Pets</label>
-                    <select name="pets" id="id_pets">
-                        <option value="0">0</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3+</option>
-                    </select>
-                </div>
-
                 <div class="form-group">
                     <label for="id_education">Education Level</label>
                     <select name="education" id="id_education" required>
@@ -251,12 +238,7 @@
                         <option value="4">4 - Master/Doctor</option>
                     </select>
                 </div>
-
-                <div class="form-group form-full">
-                    <label>Social Habits</label>
-                    <input type="checkbox" name="social_drinker" id="id_drinker"> <label for="id_drinker" style="display: inline;">Social Drinker</label>
-                    <input type="checkbox" name="social_smoker" id="id_smoker" style="margin-left: 20px;"> <label for="id_smoker" style="display: inline;">Social Smoker</label>
-                </div>
+                
             </div>
             
             <button type="submit" class="btn">Create Employee Account</button>

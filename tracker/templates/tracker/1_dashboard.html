@@ -1,7 +1,12 @@
 {% extends "tracker/_base.html" %}
 {% load duration_filters %}
 {% block content %}
-    <h1>Dashboard</h1>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1>Dashboard</h1>
+        {% if request.session.employee_id %}
+            <div style="font-size:0.9rem;"><a href="{% url 'edit_profile' %}" style="margin-right:12px;">My Profile</a><a href="{% url 'signout' %}">Sign out</a></div>
+        {% endif %}
+    </div>
 
     <div style="display: flex; gap: 20px; margin-bottom: 30px;">
         <div class="card" style="flex: 1; text-align: center;">
@@ -17,7 +22,7 @@
         </div>
 
         <div class="card" style="flex: 1; text-align: center;">
-            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Model Prediction Accuracy<big>*</big></p>
+            <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;">Model Prediction Accuracy</p>
             <h2 style="color: #007bff; margin: 0;">{{ model_accuracy|default:"92%" }}</h2>
             <p style="font-size: 0.8rem; color: #6c757d;"> Fairness Risk: Low</p>
         </div>
@@ -80,8 +85,8 @@
         
         <div style="flex: 2;">
             <h3>Total Hours Lost by Reason (All Time)</h3>
-            <div class="card" style="padding: 20px;">
-                <canvas id="reasonBarChart"></canvas> 
+            <div class="card" style="padding: 10px; height: 300px;">
+                <canvas id="reasonBarChart" style="width: 100%; height: 100%;"></canvas> 
             </div>
             
             <div class="alert-info" style="margin-top: 15px; font-size: 0.9rem;">

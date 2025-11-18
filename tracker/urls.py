@@ -21,4 +21,10 @@ urlpatterns = [
     # Add routes for login and password reset
     path('login/', views.login_view, name='login'),
     path('password_reset/', views.password_reset_view, name='password_reset'),
+    # Employee signup (used when an employee clicks forgot password or creates account)
+    path('signup/', views.signup_view, name='user_signup'),
+    # Employee profile edit (requires employee to be signed in)
+    path('employee/profile/', views.edit_profile_view, name='edit_profile'),
+    # Sign out route
+    path('logout/', views.signout_view, name='signout'),
 ]
